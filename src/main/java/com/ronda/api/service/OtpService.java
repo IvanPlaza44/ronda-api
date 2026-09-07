@@ -1,0 +1,69 @@
+package com.ronda.api.service;
+
+import com.ronda.api.entity.CodigoOtp;
+import com.ronda.api.exception.ApiException;
+import com.ronda.api.repository.CodigoOtpRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class OtpService {
+
+    private final CodigoOtpRepository codigoOtpRepository;
+    private final SecureRandom random = new SecureRandom();
+
+    @Value("${app.otp.expiration-minutes}")
+    private int expiracionMinutos;
+
+    @Value("${app.otp.length}")
+    private int longitud;
+
+    public void generarYEnviar(String email) {
+        String codigo = generarCodigo();
+        CodigoOtp otp = CodigoOtp.builder()
+                .email(email)
+                .codigo(codigo)
+                .expiracion(LocalDateTime.now().plusMinutes(expiracionMinutos))
+                .usado(false)
+                .build();
+        codigoOtpRepository.save(otp);
+
+        // Envio real de email queda fuera de alcance de esta entrega: se simula con un log.
+        // En produccion, reemplazar por una integracion con un proveedor de email (SES, SendGrid, etc).
+        log.info("OTP generado para {}: {} (valido {} minutos)", email, codigo, expiracionMinutos);
+    }
+
+    public void reenviar(String email) {
+        generarYEnviar(email);
+    }
+
+    public void verificar(String email, String codigo) {
+        CodigoOtp otp = codigoOtpRepository.findFirstByEmailAndUsadoFalseOrderByIdDesc(email)
+                .orElseThrow(() -> ApiException.solicitudInvalida("No hay un código pendiente para este email"));
+
+        if (otp.getExpiracion().isBefore(LocalDateTime.now())) {
+            throw ApiException.solicitudInvalida("El código expiró, solicitá uno nuevo");
+        }
+        if (!otp.getCodigo().equals(codigo)) {
+            throw ApiException.solicitudInvalida("El código ingresado es incorrecto");
+        }
+
+        otp.setUsado(true);
+        codigoOtpRepository.save(otp);
+    }
+
+    private String generarCodigo() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < longitud; i++) {
+            sb.append(random.nextInt(10));
+        }
+        return sb.toString();
+    }
+}
