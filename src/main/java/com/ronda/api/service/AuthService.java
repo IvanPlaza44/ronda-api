@@ -61,4 +61,21 @@ public class AuthService {
         String token = jwtService.generarToken(usuario.getEmail(), usuario.getId());
         return new AuthResponseDto(token, usuario.getId(), usuario.getEmail(), usuario.getUsername());
     }
+
+    @Transactional
+    public void registrarUsuarioConPassword(LoginDto dto) {
+        // Verificamos que no exista
+        if (usuarioRepository.findByEmail(dto.usernameOrEmail()).isPresent()) {
+            throw new ApiException("El usuario ya existe", HttpStatus.BAD_REQUEST);
+        }
+        
+        Usuario nuevoUsuario = Usuario.builder()
+                .email(dto.usernameOrEmail())
+                .username(dto.usernameOrEmail()) // Usamos el email como username por ahora
+                .password(passwordEncoder.encode(dto.password())) // Encriptamos la clave!
+                .emailVerificado(true)
+                .build();
+                
+        usuarioRepository.save(nuevoUsuario);
+    }
 }

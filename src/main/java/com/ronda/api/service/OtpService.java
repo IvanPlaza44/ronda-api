@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 public class OtpService {
 
     private final CodigoOtpRepository codigoOtpRepository;
+    private final MailService mailService;
     private final SecureRandom random = new SecureRandom();
 
     @Value("${app.otp.expiration-minutes}")
@@ -35,9 +36,10 @@ public class OtpService {
                 .build();
         codigoOtpRepository.save(otp);
 
-        // Envio real de email queda fuera de alcance de esta entrega: se simula con un log.
-        // En produccion, reemplazar por una integracion con un proveedor de email (SES, SendGrid, etc).
+        // Se mantiene el log para debugging (por si el mail tarda o falla),
+        // y ahora además se manda el mail real.
         log.info("OTP generado para {}: {} (valido {} minutos)", email, codigo, expiracionMinutos);
+        mailService.enviarOtp(email, codigo);
     }
 
     public void reenviar(String email) {
