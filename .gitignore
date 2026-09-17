@@ -6,3 +6,8 @@ target/
 .DS_Store
 *.log
 .mvn/wrapper/maven-wrapper.jar
+
+# Credenciales reales de la base compartida / mail — NUNCA se suben a git
+run-local.ps1
+run-local.sh
+.env

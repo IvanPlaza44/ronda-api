@@ -6,41 +6,40 @@ API REST en **Spring Boot 3 (Java 17)** + **MySQL** para la app "Ronda" (compra/
 
 ## 1. Cómo levantarla (cada integrante, en su máquina)
 
+Todo el equipo trabaja contra la **misma base de datos** (MySQL en Aiven, gratis) y hay además una copia del backend **desplegada en Render**. Cada uno puede:
+- **(a)** pegarle directo al backend ya desplegado (no hace falta instalar nada), o
+- **(b)** correr el backend local en su máquina, apuntando a esa misma base de Aiven — recomendado para el día de la presentación en vivo, porque el free tier de Render "duerme" y tarda ~50s en responder la primera vez.
+
+Este README no tiene (ni va a tener) las credenciales reales de la base — GitHub las bloquea automáticamente si las detecta en un commit (push protection), y aunque no las bloqueara, es mala práctica subir contraseñas al repo. Se reparten aparte.
+
 ### Requisitos
 - Java 17+
-- Maven (o usar el wrapper `./mvnw` si lo agregan)
-- MySQL corriendo local, con una base creada
+- VS Code con la extensión de Java (Extension Pack for Java) — así levantás la app con el botón ▶ **Run** sobre `RondaApiApplication.java`, sin necesitar Maven instalado aparte.
+- **NO hace falta instalar MySQL local** — se usa la base compartida en la nube.
 
-### Pasos
+### Pasos para correr local apuntando a la base compartida
 
-1. Crear la base en tu MySQL local:
-   ```sql
-   CREATE DATABASE ronda;
+1. Clonar el repo y pararse en la rama que corresponda (`Backend-2.0` mientras se termina de probar, después `main`).
+2. Abrir la carpeta del proyecto en VS Code.
+3. Copiar el archivo `.env.example` (está en la raíz del proyecto) y renombrar la copia a `.env` (mismo nivel que `pom.xml`). El `.env` **no se sube a git** a propósito — ahí van las credenciales reales.
+4. Pedirle a Ivan los valores reales (por WhatsApp/Drive del grupo, no por git) y completar el `.env`:
    ```
-2. Si tu usuario/contraseña de MySQL son `ronda`/`ronda`, no hace falta tocar nada. Si son otros, pasalos por variables de entorno al arrancar:
+   DB_URL=jdbc:mysql://<host-de-aiven>:<puerto>/<database>?sslMode=REQUIRED
+   DB_USER=<usuario-de-aiven>
+   DB_PASSWORD=<password-de-aiven>
    ```
-   set DB_URL=jdbc:mysql://localhost:3306/ronda
-   set DB_USER=tu_usuario
-   set DB_PASSWORD=tu_password
-   mvn spring-boot:run
-   ```
-   (En Mac/Linux: `export` en vez de `set`.)
-3. Sin variables (usando los defaults `ronda`/`ronda`):
-   ```
-   mvn spring-boot:run
-   ```
-4. Hibernate crea las tablas solas al arrancar (`ddl-auto=update`) y se cargan 8 categorías de ejemplo automáticamente.
-5. Confirmar que levantó: `http://localhost:8080/api/categorias` debería devolver JSON.
-6. Documentación interactiva (Swagger): `http://localhost:8080/swagger-ui.html` — se puede probar cada endpoint desde ahí sin escribir código.
+5. Guardar y correr la app con el botón ▶ **Run** arriba de `RondaApiApplication.java` (el `launch.json` del proyecto ya está configurado para leer ese `.env` automáticamente — `"envFile": "${workspaceFolder}/.env"`).
+6. Hibernate crea/actualiza las tablas solas al arrancar (`ddl-auto=update`) — como todos apuntan a la misma base, las tablas y los datos ya están creados desde que alguien corrió esto la primera vez.
+7. Confirmar que levantó: `http://localhost:8080/api/categorias` debería devolver JSON.
+8. Documentación interactiva (Swagger): `http://localhost:8080/swagger-ui.html`.
 
-### Para que todo el equipo use la MISMA base (recomendado)
+Si preferís terminal en vez de VS Code y tenés Maven instalado (`mvn -v` funciona en tu PowerShell), también podés usar `run-local.ps1.example` como base para un `run-local.ps1` propio (mismo patrón que el `.env`, pero seteando variables de entorno y corriendo `mvn spring-boot:run`).
 
-Si cada uno corre su propia instancia local, cada uno tiene sus propios usuarios/publicaciones — no comparten datos entre sí. Dos opciones simples:
+### Usando el backend ya desplegado (sin correr nada local)
 
-- **Opción A — Backend desplegado**: subir esta API a un servicio gratuito (Render, Railway, Fly.io) con una base MySQL también en la nube. Todo el equipo apunta a la misma URL pública. Es lo más cómodo para trabajar en simultáneo — si quieren, les armo el paso a paso de deploy.
-- **Opción B — Uno del grupo hostea, los demás apuntan a su IP**: quien tenga la app corriendo comparte su IP de red local (o usa `ngrok` para exponerla a internet), y los demás usan esa URL en vez de `localhost` en la app Android.
+URL: la que te pase Ivan del deploy de Render. Como el free tier duerme a los 15 min de inactividad, la primera petición después de un rato puede tardar ~50 segundos — es normal, no es que esté roto.
 
-Si van a probar contra el emulador de Android Studio con el backend corriendo en la misma PC, usar `http://10.0.2.2:8080` en vez de `localhost:8080` (así es como el emulador ve al host).
+Si van a probar contra el emulador de Android Studio con el backend corriendo **local en la misma PC**, usar `http://10.0.2.2:8080` en vez de `localhost:8080` (así es como el emulador ve al host).
 
 ---
 
