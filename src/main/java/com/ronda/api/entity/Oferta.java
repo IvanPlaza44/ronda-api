@@ -1,5 +1,6 @@
 package com.ronda.api.entity;
 
+import com.ronda.api.enums.EstadoOferta;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,9 +31,20 @@ public class Oferta {
     @Column(nullable = false)
     private BigDecimal monto;
 
+    @Column(length = 500)
+    private String mensaje;
+
+    @Enumerated(EnumType.STRING)
     @Builder.Default
-    private String estado = "PENDIENTE"; // PENDIENTE, ACEPTADA, RECHAZADA
+    private EstadoOferta estado = EstadoOferta.PENDIENTE;
 
     @Builder.Default
     private LocalDateTime fecha = LocalDateTime.now();
+
+    private LocalDateTime fechaVencimiento;
+
+    /** Si esta oferta es una contraoferta, referencia a la oferta que responde/reemplaza */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "oferta_origen_id")
+    private Oferta ofertaOrigen;
 }

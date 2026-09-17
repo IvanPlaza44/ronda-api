@@ -5,8 +5,14 @@ import java.time.LocalDateTime;
 
 public record OfertaResponseDto(
         Long id,
+        Long publicacionId,
+        String publicacionTitulo,
+        Long autorId,
         String autorNombre,
         BigDecimal monto,
+        String mensaje,
         String estado,
-        LocalDateTime fecha
+        LocalDateTime fecha,
+        LocalDateTime fechaVencimiento,
+        String tipo // OFERTA o CONTRAOFERTA
 ) {}

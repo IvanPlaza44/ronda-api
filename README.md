@@ -210,13 +210,13 @@ Content-Type: application/json
 { "respuesta": "Sí, sigue disponible" }
 ```
 
-**Ofertar** (requiere token)
+**Ofertar** (requiere token) — el `mensaje` es opcional. La oferta queda `PENDIENTE` y vence sola a las 48hs si nadie responde (ver punto 3.9).
 ```
 POST /api/publicaciones/10/ofertas
 Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "monto": 40000 }
+{ "monto": 40000, "mensaje": "¿Lo dejás en 40 mil?" }
 ```
 
 **Ver ofertas recibidas** (requiere token, solo el vendedor dueño)
@@ -346,6 +346,111 @@ GET /api/categorias
 
 ---
 
+### 3.9 Ofertas y Negociación (`/api/ofertas`) — todos requieren token
+
+La negociación es una cadena de ofertas: la oferta original la crea el interesado (`POST /api/publicaciones/{id}/ofertas`, punto 3.4). A partir de ahí, en cada paso **le toca responder a la contraparte** (si ofertó el comprador, responde el vendedor; si contraofertó el vendedor, responde el comprador, y así se va alternando). Cada oferta pendiente vence sola a las **48hs** (configurable, `app.ofertas.vigencia-horas`) — un job corre cada 15 minutos y las pasa a `VENCIDA` automáticamente.
+
+Estados posibles de una oferta: `PENDIENTE`, `ACEPTADA`, `RECHAZADA`, `VENCIDA`, `CONTRAOFERTADA`.
+
+**Aceptar una oferta** (requiere ser la contraparte que debe responder) — al aceptar se crea automáticamente una **Operación** (ver 3.10) para coordinar la entrega.
+```
+PUT /api/ofertas/25/aceptar
+Authorization: Bearer <token>
+```
+
+**Rechazar una oferta**
+```
+PUT /api/ofertas/25/rechazar
+Authorization: Bearer <token>
+```
+
+**Contraofertar** (crea una nueva oferta encadenada a la anterior, que pasa a `CONTRAOFERTADA`)
+```
+POST /api/ofertas/25/contraofertar
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "monto": 42000, "mensaje": "Te lo dejo en 42 mil y te lo alcanzo yo" }
+```
+→
+```json
+{
+  "id": 26, "publicacionId": 10, "publicacionTitulo": "Bici rodado 26",
+  "autorId": 5, "autorNombre": "Ana Gómez", "monto": 42000, "mensaje": "Te lo dejo en 42 mil y te lo alcanzo yo",
+  "estado": "PENDIENTE", "fecha": "...", "fechaVencimiento": "...", "tipo": "CONTRAOFERTA"
+}
+```
+
+**Mis ofertas enviadas** (como comprador/interesado) y **recibidas** (como vendedor, en todas mis publicaciones)
+```
+GET /api/ofertas/enviadas
+GET /api/ofertas/recibidas
+Authorization: Bearer <token>
+```
+
+---
+
+### 3.10 Coordinación de Entrega y Mapa (`/api/operaciones`) — todos requieren token
+
+Una **Operación** se crea sola cuando se acepta una oferta (3.9). Ahí se coordina el punto de encuentro (para mostrar el mapa y el botón "Cómo llegar" en la app) y se marca cuando la entrega ya se hizo.
+
+**Mis operaciones** (como comprador o como vendedor)
+```
+GET /api/operaciones/mias
+Authorization: Bearer <token>
+```
+→
+```json
+[{
+  "id": 8, "publicacionId": 10, "publicacionTitulo": "Bici rodado 26",
+  "compradorId": 5, "compradorNombre": "Ana Gómez", "vendedorId": 2, "vendedorNombre": "Juan Pérez",
+  "montoFinal": 42000, "estado": "PENDIENTE_ENTREGA", "fechaAcordada": "...", "fechaEntrega": null,
+  "direccionEncuentro": null, "latitudEncuentro": null, "longitudEncuentro": null,
+  "puedeCalificar": false, "tipo": "COMPRA"
+}]
+```
+`tipo` es relativo a quién consulta (`COMPRA` o `VENTA`). `puedeCalificar` ya viene calculado (ver 3.11).
+
+**Detalle de una operación**
+```
+GET /api/operaciones/8
+Authorization: Bearer <token>
+```
+
+**Definir/actualizar el punto de encuentro** (lat/long para el mapa; cualquiera de las dos partes puede cargarlo)
+```
+PUT /api/operaciones/8/punto-encuentro
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "direccion": "Plaza Serrano, Palermo", "latitud": -34.5885, "longitud": -58.4306 }
+```
+(Con `latitud`/`longitud` la app arma el link de "Cómo llegar", por ej. `https://www.google.com/maps/dir/?api=1&destination=<lat>,<long>`.)
+
+**Marcar como entregada** — pasa la operación a `ENTREGADA`, marca la publicación como `VENDIDA` y abre la ventana de 7 días para calificar.
+```
+PUT /api/operaciones/8/entregada
+Authorization: Bearer <token>
+```
+
+---
+
+### 3.11 Historial y Calificaciones (`/api/operaciones/{id}/calificar`) — requiere token
+
+Solo se puede calificar una operación **ya entregada**, dentro de los **7 días** posteriores a la entrega, y una sola vez por usuario. El receptor y su rol (`COMPRADOR`/`VENDEDOR`) se deducen solos según quién califica.
+```
+POST /api/operaciones/8/calificar
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "estrellas": 5, "comentario": "Todo perfecto, puntual y el artículo como lo describió" }
+```
+→ `201 Created` (o `409 Conflict` si ya venció la ventana de 7 días o ya calificaste esa operación)
+
+Estas calificaciones alimentan la reputación del punto 3.2 (`GET /api/usuarios/{id}`: promedio de estrellas y cantidad de operaciones como comprador/vendedor).
+
+---
+
 ## 4. Tabla resumen
 
 | Método | Endpoint | Auth | Descripción |
@@ -372,6 +477,16 @@ GET /api/categorias
 | PUT | `/api/publicaciones/{id}/preguntas/{pid}/respuesta` | Sí (vendedor) | Responder pregunta |
 | POST | `/api/publicaciones/{id}/ofertas` | Sí | Ofertar |
 | GET | `/api/publicaciones/{id}/ofertas` | Sí (vendedor) | Ver ofertas recibidas |
+| PUT | `/api/ofertas/{id}/aceptar` | Sí (contraparte) | Aceptar oferta → crea Operación |
+| PUT | `/api/ofertas/{id}/rechazar` | Sí (contraparte) | Rechazar oferta |
+| POST | `/api/ofertas/{id}/contraofertar` | Sí (contraparte) | Contraofertar |
+| GET | `/api/ofertas/enviadas` | Sí | Mis ofertas enviadas |
+| GET | `/api/ofertas/recibidas` | Sí | Ofertas recibidas en mis publicaciones |
+| GET | `/api/operaciones/mias` | Sí | Mis operaciones (compras y ventas) |
+| GET | `/api/operaciones/{id}` | Sí (participante) | Detalle de una operación |
+| PUT | `/api/operaciones/{id}/punto-encuentro` | Sí (participante) | Definir punto de encuentro (mapa) |
+| PUT | `/api/operaciones/{id}/entregada` | Sí (participante) | Marcar entrega realizada |
+| POST | `/api/operaciones/{id}/calificar` | Sí (participante) | Calificar (ventana de 7 días) |
 | GET | `/api/favoritos` | Sí | Listar favoritos |
 | POST | `/api/favoritos/{publicacionId}` | Sí | Agregar favorito |
 | DELETE | `/api/favoritos/{publicacionId}` | Sí | Quitar favorito |
