@@ -4,6 +4,7 @@ import com.ronda.api.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -28,16 +29,6 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
 
-    private static final String[] RUTAS_PUBLICAS = {
-            "/api/auth/**",
-            "/api/publicaciones",
-            "/api/publicaciones/{id}",
-            "/api/categorias/**",
-            "/h2-console/**",
-            "/swagger-ui/**",
-            "/api-docs/**"
-    };
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -47,7 +38,10 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/h2-console/**", "/swagger-ui.html", "/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/publicaciones/**", "/api/categorias/**", "/api/usuarios/{id}", "/api/usuarios/{id}/calificaciones").permitAll()
+                        // Rutas que SI o SI requieren estar logueado, aunque sean GET.
+                        // Deben ir ANTES de la regla general de "/api/publicaciones/**" permitAll.
+                        .requestMatchers(HttpMethod.GET, "/api/publicaciones/borrador", "/api/publicaciones/mias").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/publicaciones/**", "/api/categorias/**", "/api/usuarios/{id}", "/api/usuarios/{id}/calificaciones").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
