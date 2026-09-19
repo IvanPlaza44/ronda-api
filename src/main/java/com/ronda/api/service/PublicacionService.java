@@ -23,6 +23,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,6 +37,7 @@ public class PublicacionService {
     private final PublicacionRepository publicacionRepository;
     private final CategoriaRepository categoriaRepository;
     private final CalificacionRepository calificacionRepository;
+    private final CloudinaryService cloudinaryService;
 
     // ---------- Explorar (Home) ----------
 
@@ -119,6 +121,22 @@ public class PublicacionService {
         }
 
         p.setEstado(EstadoPublicacion.ACTIVA);
+        p.setFechaActualizacion(LocalDateTime.now());
+        publicacionRepository.save(p);
+        return obtenerDetalle(p.getId(), vendedor);
+    }
+
+    @Transactional
+    public PublicacionDetalleDto agregarFoto(Usuario vendedor, Long id, MultipartFile archivo) {
+        Publicacion p = obtenerPropia(vendedor, id);
+        // Fuerza la carga de la lista (lazy) ANTES de agregar: si se agrega sobre una
+        // lista todavia no inicializada, Hibernate no calcula bien el indice de la
+        // columna @OrderColumn ("orden") y lo guarda en null, rompiendo la lectura posterior.
+        p.getFotos().size();
+
+        String url = cloudinaryService.subirImagen(archivo);
+        Foto foto = Foto.builder().publicacion(p).url(url).build();
+        p.getFotos().add(foto);
         p.setFechaActualizacion(LocalDateTime.now());
         publicacionRepository.save(p);
         return obtenerDetalle(p.getId(), vendedor);
