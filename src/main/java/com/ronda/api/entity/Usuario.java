@@ -35,6 +35,8 @@ public class Usuario {
 
     private String zona;
 
+    private String fotoPerfil;
+
     @Builder.Default
     private boolean emailVerificado = false;
 

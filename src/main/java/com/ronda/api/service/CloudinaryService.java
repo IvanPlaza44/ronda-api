@@ -16,10 +16,14 @@ public class CloudinaryService {
 
     private final Cloudinary cloudinary;
 
-    public String subirImagen(MultipartFile archivo) {
+        public String subirImagen(MultipartFile archivo) {
+        return subirImagen(archivo, "ronda/publicaciones");
+    }
+
+    public String subirImagen(MultipartFile archivo, String carpeta) {
         try {
             Map<?, ?> resultado = cloudinary.uploader().upload(archivo.getBytes(),
-                    ObjectUtils.asMap("folder", "ronda/publicaciones"));
+                    ObjectUtils.asMap("folder", carpeta));
             return (String) resultado.get("secure_url");
         } catch (IOException e) {
             throw ApiException.solicitudInvalida("No se pudo subir la imagen: " + e.getMessage());
