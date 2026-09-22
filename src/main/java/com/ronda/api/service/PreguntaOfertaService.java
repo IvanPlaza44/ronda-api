@@ -18,6 +18,7 @@ import com.ronda.api.repository.OfertaRepository;
 import com.ronda.api.repository.OperacionRepository;
 import com.ronda.api.repository.PreguntaRepository;
 import com.ronda.api.repository.PublicacionRepository;
+import com.ronda.api.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class PreguntaOfertaService {
     private final OfertaRepository ofertaRepository;
     private final PublicacionRepository publicacionRepository;
     private final OperacionRepository operacionRepository;
+    private final UsuarioRepository usuarioRepository;
 
     @Value("${app.ofertas.vigencia-horas:48}")
     private int vigenciaHoras;
@@ -74,9 +76,10 @@ public class PreguntaOfertaService {
             throw ApiException.solicitudInvalida("No podés ofertar en tu propia publicación");
         }
         validarMonto(dto.monto());
+        Usuario autorManaged = usuarioRepository.getReferenceById(autor.getId());
         Oferta oferta = Oferta.builder()
                 .publicacion(publicacion)
-                .autor(autor)
+                .autor(autorManaged)
                 .monto(dto.monto())
                 .mensaje(dto.mensaje())
                 .estado(EstadoOferta.PENDIENTE)
@@ -150,10 +153,12 @@ public class PreguntaOfertaService {
         return aDto(contraoferta);
     }
 
+    @Transactional(readOnly = true)
     public List<OfertaResponseDto> misOfertasEnviadas(Usuario usuario) {
         return ofertaRepository.findByAutorOrderByFechaDesc(usuario).stream().map(this::aDto).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<OfertaResponseDto> misOfertasRecibidas(Usuario usuario) {
         return ofertaRepository.findRecibidasPorVendedor(usuario).stream().map(this::aDto).toList();
     }
