@@ -17,7 +17,13 @@ public interface OfertaRepository extends JpaRepository<Oferta, Long> {
 
     List<Oferta> findByAutorOrderByFechaDesc(Usuario autor);
 
-    @Query("SELECT o FROM Oferta o WHERE o.publicacion.vendedor = :vendedor ORDER BY o.fecha DESC")
+    @Query("""
+            SELECT DISTINCT o FROM Oferta o
+            LEFT JOIN o.ofertaOrigen origen
+            WHERE o.autor <> :vendedor
+              AND (o.publicacion.vendedor = :vendedor OR origen.autor = :vendedor)
+            ORDER BY o.fecha DESC
+            """)
     List<Oferta> findRecibidasPorVendedor(@Param("vendedor") Usuario vendedor);
 
     List<Oferta> findByEstadoAndFechaVencimientoBefore(EstadoOferta estado, LocalDateTime momento);
