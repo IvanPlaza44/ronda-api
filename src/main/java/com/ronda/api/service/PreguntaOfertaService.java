@@ -51,6 +51,7 @@ public class PreguntaOfertaService {
         return aDto(pregunta);
     }
 
+    @Transactional(readOnly = true)
     public List<PreguntaResponseDto> listarPreguntas(Long publicacionId) {
         Publicacion publicacion = obtenerPublicacion(publicacionId);
         return preguntaRepository.findByPublicacionOrderByFechaAsc(publicacion).stream().map(this::aDto).toList();
