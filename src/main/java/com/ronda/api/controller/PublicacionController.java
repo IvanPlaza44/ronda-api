@@ -10,9 +10,11 @@ import com.ronda.api.enums.EstadoPublicacion;
 import com.ronda.api.enums.OrdenPublicacion;
 import com.ronda.api.service.PublicacionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -65,6 +67,14 @@ public class PublicacionController {
     public ResponseEntity<PublicacionDetalleDto> publicar(@AuthenticationPrincipal Usuario usuario,
                                                             @PathVariable Long id) {
         return ResponseEntity.ok(publicacionService.publicar(usuario, id));
+    }
+
+    // ---- Subir foto (Cloudinary) ----
+    @PostMapping(value = "/{id}/fotos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PublicacionDetalleDto> agregarFoto(@AuthenticationPrincipal Usuario usuario,
+                                                               @PathVariable Long id,
+                                                               @RequestParam("archivo") MultipartFile archivo) {
+        return ResponseEntity.ok(publicacionService.agregarFoto(usuario, id, archivo));
     }
 
     // ---- Mis publicaciones ----

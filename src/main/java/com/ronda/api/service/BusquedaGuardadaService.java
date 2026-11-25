@@ -37,12 +37,12 @@ public class BusquedaGuardadaService {
                 .zona(dto.zona())
                 .build();
         busquedaGuardadaRepository.save(bg);
-        return new BusquedaGuardadaResponseDto(bg.getId(), bg.getNombre(), false);
+        return toDto(bg, false);
     }
 
     public List<BusquedaGuardadaResponseDto> listar(Usuario usuario) {
         return busquedaGuardadaRepository.findByUsuario(usuario).stream()
-                .map(bg -> new BusquedaGuardadaResponseDto(bg.getId(), bg.getNombre(), hayNovedades(bg)))
+                .map(bg -> toDto(bg, hayNovedades(bg)))
                 .toList();
     }
 
@@ -57,6 +57,20 @@ public class BusquedaGuardadaService {
         BusquedaGuardada bg = obtenerPropia(usuario, id);
         bg.setUltimaRevision(LocalDateTime.now());
         busquedaGuardadaRepository.save(bg);
+    }
+
+    private BusquedaGuardadaResponseDto toDto(BusquedaGuardada bg, boolean hayNovedades) {
+        return new BusquedaGuardadaResponseDto(
+                bg.getId(),
+                bg.getNombre(),
+                hayNovedades,
+                bg.getQuery(),
+                bg.getCategoriaId(),
+                bg.getPrecioMin(),
+                bg.getPrecioMax(),
+                bg.getEstadoArticulo(),
+                bg.getZona()
+        );
     }
 
     private boolean hayNovedades(BusquedaGuardada bg) {

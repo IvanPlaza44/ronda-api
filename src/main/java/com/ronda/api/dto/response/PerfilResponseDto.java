@@ -7,6 +7,7 @@ public record PerfilResponseDto(
         String username,
         String telefono,
         String zona,
+        String fotoPerfil,
         java.time.LocalDateTime fechaAlta,
         Double promedioEstrellas,
         long operacionesComoComprador,

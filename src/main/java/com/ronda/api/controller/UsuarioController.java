@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -29,6 +30,11 @@ public class UsuarioController {
     public ResponseEntity<PerfilResponseDto> actualizarPerfil(@AuthenticationPrincipal Usuario usuario,
                                                                 @RequestBody ActualizarPerfilDto dto) {
         return ResponseEntity.ok(usuarioService.actualizarPerfil(usuario, dto));
+    }
+        @PostMapping(value = "/me/foto", consumes = "multipart/form-data")
+    public ResponseEntity<PerfilResponseDto> actualizarFotoPerfil(@AuthenticationPrincipal Usuario usuario,
+                                                                    @RequestParam("archivo") MultipartFile archivo) {
+        return ResponseEntity.ok(usuarioService.actualizarFotoPerfil(usuario, archivo));
     }
 
     @GetMapping("/{id}")

@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final CalificacionRepository calificacionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final CloudinaryService cloudinaryService;
 
     public PerfilResponseDto obtenerPerfilPropio(Usuario usuario) {
         List<Calificacion> recibidas = calificacionRepository.findByReceptor(usuario);
@@ -34,9 +36,20 @@ public class UsuarioService {
 
         return new PerfilResponseDto(
                 usuario.getId(), usuario.getNombre(), usuario.getEmail(), usuario.getUsername(),
-                usuario.getTelefono(), usuario.getZona(), usuario.getFechaAlta(),
+                usuario.getTelefono(), usuario.getZona(), usuario.getFotoPerfil(), usuario.getFechaAlta(),
                 Math.round(promedio * 10.0) / 10.0, comoComprador, comoVendedor
         );
+    }
+
+    @Transactional
+    public PerfilResponseDto actualizarFotoPerfil(Usuario usuario, MultipartFile archivo) {
+        if (archivo == null || archivo.isEmpty()) {
+            throw ApiException.solicitudInvalida("Debe adjuntar una imagen");
+        }
+        String url = cloudinaryService.subirImagen(archivo, "ronda/perfiles");
+        usuario.setFotoPerfil(url);
+        usuarioRepository.save(usuario);
+        return obtenerPerfilPropio(usuario);
     }
 
     @Transactional
@@ -73,7 +86,7 @@ public class UsuarioService {
                 .toList();
 
         return new PerfilPublicoResponseDto(
-                usuario.getId(), usuario.getNombre(), usuario.getZona(), usuario.getFechaAlta(),
+                usuario.getId(), usuario.getNombre(), usuario.getZona(), usuario.getFotoPerfil(), usuario.getFechaAlta(),
                 Math.round(promedio * 10.0) / 10.0, recibidas.size(), activas
         );
     }

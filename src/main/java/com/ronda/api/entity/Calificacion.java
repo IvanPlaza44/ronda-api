@@ -31,6 +31,11 @@ public class Calificacion {
     @JoinColumn(name = "publicacion_id")
     private Publicacion publicacion;
 
+    /** Operación concreta (entrega) que se está calificando. Nula para calificaciones legacy sin operación asociada. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "operacion_id")
+    private Operacion operacion;
+
     /** Rol que tuvo el receptor en la operacion calificada */
     @Enumerated(EnumType.STRING)
     private RolCalificacion rolReceptor;

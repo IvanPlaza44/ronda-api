@@ -7,6 +7,7 @@ public record PerfilPublicoResponseDto(
         Long id,
         String nombre,
         String zona,
+        String fotoPerfil,
         LocalDateTime fechaAlta,
         Double promedioEstrellas,
         long totalCalificaciones,

@@ -6,41 +6,40 @@ API REST en **Spring Boot 3 (Java 17)** + **MySQL** para la app "Ronda" (compra/
 
 ## 1. Cómo levantarla (cada integrante, en su máquina)
 
+Todo el equipo trabaja contra la **misma base de datos** (MySQL en Aiven, gratis) y hay además una copia del backend **desplegada en Render**. Cada uno puede:
+- **(a)** pegarle directo al backend ya desplegado (no hace falta instalar nada), o
+- **(b)** correr el backend local en su máquina, apuntando a esa misma base de Aiven — recomendado para el día de la presentación en vivo, porque el free tier de Render "duerme" y tarda ~50s en responder la primera vez.
+
+Este README no tiene (ni va a tener) las credenciales reales de la base — GitHub las bloquea automáticamente si las detecta en un commit (push protection), y aunque no las bloqueara, es mala práctica subir contraseñas al repo. Se reparten aparte.
+
 ### Requisitos
 - Java 17+
-- Maven (o usar el wrapper `./mvnw` si lo agregan)
-- MySQL corriendo local, con una base creada
+- VS Code con la extensión de Java (Extension Pack for Java) — así levantás la app con el botón ▶ **Run** sobre `RondaApiApplication.java`, sin necesitar Maven instalado aparte.
+- **NO hace falta instalar MySQL local** — se usa la base compartida en la nube.
 
-### Pasos
+### Pasos para correr local apuntando a la base compartida
 
-1. Crear la base en tu MySQL local:
-   ```sql
-   CREATE DATABASE ronda;
+1. Clonar el repo y pararse en la rama que corresponda (`Backend-2.0` mientras se termina de probar, después `main`).
+2. Abrir la carpeta del proyecto en VS Code.
+3. Copiar el archivo `.env.example` (está en la raíz del proyecto) y renombrar la copia a `.env` (mismo nivel que `pom.xml`). El `.env` **no se sube a git** a propósito — ahí van las credenciales reales.
+4. Pedirle a Ivan los valores reales (por WhatsApp/Drive del grupo, no por git) y completar el `.env`:
    ```
-2. Si tu usuario/contraseña de MySQL son `ronda`/`ronda`, no hace falta tocar nada. Si son otros, pasalos por variables de entorno al arrancar:
+   DB_URL=jdbc:mysql://<host-de-aiven>:<puerto>/<database>?sslMode=REQUIRED
+   DB_USER=<usuario-de-aiven>
+   DB_PASSWORD=<password-de-aiven>
    ```
-   set DB_URL=jdbc:mysql://localhost:3306/ronda
-   set DB_USER=tu_usuario
-   set DB_PASSWORD=tu_password
-   mvn spring-boot:run
-   ```
-   (En Mac/Linux: `export` en vez de `set`.)
-3. Sin variables (usando los defaults `ronda`/`ronda`):
-   ```
-   mvn spring-boot:run
-   ```
-4. Hibernate crea las tablas solas al arrancar (`ddl-auto=update`) y se cargan 8 categorías de ejemplo automáticamente.
-5. Confirmar que levantó: `http://localhost:8080/api/categorias` debería devolver JSON.
-6. Documentación interactiva (Swagger): `http://localhost:8080/swagger-ui.html` — se puede probar cada endpoint desde ahí sin escribir código.
+5. Guardar y correr la app con el botón ▶ **Run** arriba de `RondaApiApplication.java` (el `launch.json` del proyecto ya está configurado para leer ese `.env` automáticamente — `"envFile": "${workspaceFolder}/.env"`).
+6. Hibernate crea/actualiza las tablas solas al arrancar (`ddl-auto=update`) — como todos apuntan a la misma base, las tablas y los datos ya están creados desde que alguien corrió esto la primera vez.
+7. Confirmar que levantó: `http://localhost:8080/api/categorias` debería devolver JSON.
+8. Documentación interactiva (Swagger): `http://localhost:8080/swagger-ui.html`.
 
-### Para que todo el equipo use la MISMA base (recomendado)
+Si preferís terminal en vez de VS Code y tenés Maven instalado (`mvn -v` funciona en tu PowerShell), también podés usar `run-local.ps1.example` como base para un `run-local.ps1` propio (mismo patrón que el `.env`, pero seteando variables de entorno y corriendo `mvn spring-boot:run`).
 
-Si cada uno corre su propia instancia local, cada uno tiene sus propios usuarios/publicaciones — no comparten datos entre sí. Dos opciones simples:
+### Usando el backend ya desplegado (sin correr nada local)
 
-- **Opción A — Backend desplegado**: subir esta API a un servicio gratuito (Render, Railway, Fly.io) con una base MySQL también en la nube. Todo el equipo apunta a la misma URL pública. Es lo más cómodo para trabajar en simultáneo — si quieren, les armo el paso a paso de deploy.
-- **Opción B — Uno del grupo hostea, los demás apuntan a su IP**: quien tenga la app corriendo comparte su IP de red local (o usa `ngrok` para exponerla a internet), y los demás usan esa URL en vez de `localhost` en la app Android.
+URL: la que te pase Ivan del deploy de Render. Como el free tier duerme a los 15 min de inactividad, la primera petición después de un rato puede tardar ~50 segundos — es normal, no es que esté roto.
 
-Si van a probar contra el emulador de Android Studio con el backend corriendo en la misma PC, usar `http://10.0.2.2:8080` en vez de `localhost:8080` (así es como el emulador ve al host).
+Si van a probar contra el emulador de Android Studio con el backend corriendo **local en la misma PC**, usar `http://10.0.2.2:8080` en vez de `localhost:8080` (así es como el emulador ve al host).
 
 ---
 
@@ -210,13 +209,13 @@ Content-Type: application/json
 { "respuesta": "Sí, sigue disponible" }
 ```
 
-**Ofertar** (requiere token)
+**Ofertar** (requiere token) — el `mensaje` es opcional. La oferta queda `PENDIENTE` y vence sola a las 48hs si nadie responde (ver punto 3.9).
 ```
 POST /api/publicaciones/10/ofertas
 Authorization: Bearer <token>
 Content-Type: application/json
 
-{ "monto": 40000 }
+{ "monto": 40000, "mensaje": "¿Lo dejás en 40 mil?" }
 ```
 
 **Ver ofertas recibidas** (requiere token, solo el vendedor dueño)
@@ -346,6 +345,111 @@ GET /api/categorias
 
 ---
 
+### 3.9 Ofertas y Negociación (`/api/ofertas`) — todos requieren token
+
+La negociación es una cadena de ofertas: la oferta original la crea el interesado (`POST /api/publicaciones/{id}/ofertas`, punto 3.4). A partir de ahí, en cada paso **le toca responder a la contraparte** (si ofertó el comprador, responde el vendedor; si contraofertó el vendedor, responde el comprador, y así se va alternando). Cada oferta pendiente vence sola a las **48hs** (configurable, `app.ofertas.vigencia-horas`) — un job corre cada 15 minutos y las pasa a `VENCIDA` automáticamente.
+
+Estados posibles de una oferta: `PENDIENTE`, `ACEPTADA`, `RECHAZADA`, `VENCIDA`, `CONTRAOFERTADA`.
+
+**Aceptar una oferta** (requiere ser la contraparte que debe responder) — al aceptar se crea automáticamente una **Operación** (ver 3.10) para coordinar la entrega.
+```
+PUT /api/ofertas/25/aceptar
+Authorization: Bearer <token>
+```
+
+**Rechazar una oferta**
+```
+PUT /api/ofertas/25/rechazar
+Authorization: Bearer <token>
+```
+
+**Contraofertar** (crea una nueva oferta encadenada a la anterior, que pasa a `CONTRAOFERTADA`)
+```
+POST /api/ofertas/25/contraofertar
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "monto": 42000, "mensaje": "Te lo dejo en 42 mil y te lo alcanzo yo" }
+```
+→
+```json
+{
+  "id": 26, "publicacionId": 10, "publicacionTitulo": "Bici rodado 26",
+  "autorId": 5, "autorNombre": "Ana Gómez", "monto": 42000, "mensaje": "Te lo dejo en 42 mil y te lo alcanzo yo",
+  "estado": "PENDIENTE", "fecha": "...", "fechaVencimiento": "...", "tipo": "CONTRAOFERTA"
+}
+```
+
+**Mis ofertas enviadas** (como comprador/interesado) y **recibidas** (como vendedor, en todas mis publicaciones)
+```
+GET /api/ofertas/enviadas
+GET /api/ofertas/recibidas
+Authorization: Bearer <token>
+```
+
+---
+
+### 3.10 Coordinación de Entrega y Mapa (`/api/operaciones`) — todos requieren token
+
+Una **Operación** se crea sola cuando se acepta una oferta (3.9). Ahí se coordina el punto de encuentro (para mostrar el mapa y el botón "Cómo llegar" en la app) y se marca cuando la entrega ya se hizo.
+
+**Mis operaciones** (como comprador o como vendedor)
+```
+GET /api/operaciones/mias
+Authorization: Bearer <token>
+```
+→
+```json
+[{
+  "id": 8, "publicacionId": 10, "publicacionTitulo": "Bici rodado 26",
+  "compradorId": 5, "compradorNombre": "Ana Gómez", "vendedorId": 2, "vendedorNombre": "Juan Pérez",
+  "montoFinal": 42000, "estado": "PENDIENTE_ENTREGA", "fechaAcordada": "...", "fechaEntrega": null,
+  "direccionEncuentro": null, "latitudEncuentro": null, "longitudEncuentro": null,
+  "puedeCalificar": false, "tipo": "COMPRA"
+}]
+```
+`tipo` es relativo a quién consulta (`COMPRA` o `VENTA`). `puedeCalificar` ya viene calculado (ver 3.11).
+
+**Detalle de una operación**
+```
+GET /api/operaciones/8
+Authorization: Bearer <token>
+```
+
+**Definir/actualizar el punto de encuentro** (lat/long para el mapa; cualquiera de las dos partes puede cargarlo)
+```
+PUT /api/operaciones/8/punto-encuentro
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "direccion": "Plaza Serrano, Palermo", "latitud": -34.5885, "longitud": -58.4306 }
+```
+(Con `latitud`/`longitud` la app arma el link de "Cómo llegar", por ej. `https://www.google.com/maps/dir/?api=1&destination=<lat>,<long>`.)
+
+**Marcar como entregada** — pasa la operación a `ENTREGADA`, marca la publicación como `VENDIDA` y abre la ventana de 7 días para calificar.
+```
+PUT /api/operaciones/8/entregada
+Authorization: Bearer <token>
+```
+
+---
+
+### 3.11 Historial y Calificaciones (`/api/operaciones/{id}/calificar`) — requiere token
+
+Solo se puede calificar una operación **ya entregada**, dentro de los **7 días** posteriores a la entrega, y una sola vez por usuario. El receptor y su rol (`COMPRADOR`/`VENDEDOR`) se deducen solos según quién califica.
+```
+POST /api/operaciones/8/calificar
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{ "estrellas": 5, "comentario": "Todo perfecto, puntual y el artículo como lo describió" }
+```
+→ `201 Created` (o `409 Conflict` si ya venció la ventana de 7 días o ya calificaste esa operación)
+
+Estas calificaciones alimentan la reputación del punto 3.2 (`GET /api/usuarios/{id}`: promedio de estrellas y cantidad de operaciones como comprador/vendedor).
+
+---
+
 ## 4. Tabla resumen
 
 | Método | Endpoint | Auth | Descripción |
@@ -372,6 +476,16 @@ GET /api/categorias
 | PUT | `/api/publicaciones/{id}/preguntas/{pid}/respuesta` | Sí (vendedor) | Responder pregunta |
 | POST | `/api/publicaciones/{id}/ofertas` | Sí | Ofertar |
 | GET | `/api/publicaciones/{id}/ofertas` | Sí (vendedor) | Ver ofertas recibidas |
+| PUT | `/api/ofertas/{id}/aceptar` | Sí (contraparte) | Aceptar oferta → crea Operación |
+| PUT | `/api/ofertas/{id}/rechazar` | Sí (contraparte) | Rechazar oferta |
+| POST | `/api/ofertas/{id}/contraofertar` | Sí (contraparte) | Contraofertar |
+| GET | `/api/ofertas/enviadas` | Sí | Mis ofertas enviadas |
+| GET | `/api/ofertas/recibidas` | Sí | Ofertas recibidas en mis publicaciones |
+| GET | `/api/operaciones/mias` | Sí | Mis operaciones (compras y ventas) |
+| GET | `/api/operaciones/{id}` | Sí (participante) | Detalle de una operación |
+| PUT | `/api/operaciones/{id}/punto-encuentro` | Sí (participante) | Definir punto de encuentro (mapa) |
+| PUT | `/api/operaciones/{id}/entregada` | Sí (participante) | Marcar entrega realizada |
+| POST | `/api/operaciones/{id}/calificar` | Sí (participante) | Calificar (ventana de 7 días) |
 | GET | `/api/favoritos` | Sí | Listar favoritos |
 | POST | `/api/favoritos/{publicacionId}` | Sí | Agregar favorito |
 | DELETE | `/api/favoritos/{publicacionId}` | Sí | Quitar favorito |
