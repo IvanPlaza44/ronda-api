@@ -18,6 +18,7 @@ import com.ronda.api.repository.OfertaRepository;
 import com.ronda.api.repository.OperacionRepository;
 import com.ronda.api.repository.PreguntaRepository;
 import com.ronda.api.repository.PublicacionRepository;
+import com.ronda.api.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class PreguntaOfertaService {
     private final OfertaRepository ofertaRepository;
     private final PublicacionRepository publicacionRepository;
     private final OperacionRepository operacionRepository;
+    private final UsuarioRepository usuarioRepository;
     private final NotificacionService notificacionService;
 
     @Value("${app.ofertas.vigencia-horas:48}")
@@ -47,14 +49,17 @@ public class PreguntaOfertaService {
         }
         Pregunta pregunta = Pregunta.builder().publicacion(publicacion).autor(autor).mensaje(dto.mensaje()).build();
         preguntaRepository.save(pregunta);
-                notificacionService.crear(
+
+notificacionService.crear(
                 publicacion.getVendedor().getId(), autor.getId(),
                 "PREGUNTA_NUEVA",
                 "Te hicieron una pregunta en \"" + publicacion.getTitulo() + "\"",
                 publicacion.getId(), null);
+
         return aDto(pregunta);
     }
 
+    @Transactional(readOnly = true)
     public List<PreguntaResponseDto> listarPreguntas(Long publicacionId) {
         Publicacion publicacion = obtenerPublicacion(publicacionId);
         return preguntaRepository.findByPublicacionOrderByFechaAsc(publicacion).stream().map(this::aDto).toList();
@@ -70,11 +75,13 @@ public class PreguntaOfertaService {
                 .orElseThrow(() -> ApiException.noEncontrado("Pregunta no encontrada"));
         pregunta.setRespuesta(dto.respuesta());
         preguntaRepository.save(pregunta);
+
                 notificacionService.crear(
                 pregunta.getAutor().getId(), vendedor.getId(),
                 "PREGUNTA_RESPONDIDA",
                 "Respondieron tu pregunta en \"" + publicacion.getTitulo() + "\"",
                 publicacion.getId(), null);
+
         return aDto(pregunta);
     }
 
@@ -85,9 +92,10 @@ public class PreguntaOfertaService {
             throw ApiException.solicitudInvalida("No podés ofertar en tu propia publicación");
         }
         validarMonto(dto.monto());
+        Usuario autorManaged = usuarioRepository.getReferenceById(autor.getId());
         Oferta oferta = Oferta.builder()
                 .publicacion(publicacion)
-                .autor(autor)
+                .autor(autorManaged)
                 .monto(dto.monto())
                 .mensaje(dto.mensaje())
                 .estado(EstadoOferta.PENDIENTE)
@@ -99,6 +107,7 @@ public class PreguntaOfertaService {
                 "OFERTA_RECIBIDA",
                 "Recibiste una oferta en \"" + publicacion.getTitulo() + "\"",
                 publicacion.getId(), oferta.getId());
+
         return aDto(oferta);
     }
 
@@ -144,13 +153,11 @@ public class PreguntaOfertaService {
         validarAutorizadoARepondar(usuario, oferta);
         oferta.setEstado(EstadoOferta.RECHAZADA);
         ofertaRepository.save(oferta);
-
-        notificacionService.crear(
+                notificacionService.crear(
                 oferta.getAutor().getId(), usuario.getId(),
                 "OFERTA_RECHAZADA",
                 "Rechazaron tu oferta en \"" + oferta.getPublicacion().getTitulo() + "\"",
                 oferta.getPublicacion().getId(), oferta.getId());
-
         return aDto(oferta);
     }
 
@@ -163,7 +170,6 @@ public class PreguntaOfertaService {
         original.setEstado(EstadoOferta.CONTRAOFERTADA);
         ofertaRepository.save(original);
 
-
         Oferta contraoferta = Oferta.builder()
                 .publicacion(original.getPublicacion())
                 .autor(usuario)
@@ -174,20 +180,20 @@ public class PreguntaOfertaService {
                 .ofertaOrigen(original)
                 .build();
         ofertaRepository.save(contraoferta);
-
         notificacionService.crear(
                 original.getAutor().getId(), usuario.getId(),
                 "OFERTA_CONTRAOFERTADA",
                 "Te hicieron una contraoferta en \"" + original.getPublicacion().getTitulo() + "\"",
                 original.getPublicacion().getId(), contraoferta.getId());
-
         return aDto(contraoferta);
     }
 
+    @Transactional(readOnly = true)
     public List<OfertaResponseDto> misOfertasEnviadas(Usuario usuario) {
         return ofertaRepository.findByAutorOrderByFechaDesc(usuario).stream().map(this::aDto).toList();
     }
 
+    @Transactional(readOnly = true)
     public List<OfertaResponseDto> misOfertasRecibidas(Usuario usuario) {
         return ofertaRepository.findRecibidasPorVendedor(usuario).stream().map(this::aDto).toList();
     }
