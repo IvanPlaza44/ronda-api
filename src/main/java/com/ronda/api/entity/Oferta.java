@@ -47,4 +47,5 @@ public class Oferta {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "oferta_origen_id")
     private Oferta ofertaOrigen;
+
 }

@@ -34,6 +34,7 @@ public class PreguntaOfertaService {
     private final OfertaRepository ofertaRepository;
     private final PublicacionRepository publicacionRepository;
     private final OperacionRepository operacionRepository;
+    private final NotificacionService notificacionService;
 
     @Value("${app.ofertas.vigencia-horas:48}")
     private int vigenciaHoras;
@@ -46,6 +47,11 @@ public class PreguntaOfertaService {
         }
         Pregunta pregunta = Pregunta.builder().publicacion(publicacion).autor(autor).mensaje(dto.mensaje()).build();
         preguntaRepository.save(pregunta);
+                notificacionService.crear(
+                publicacion.getVendedor().getId(), autor.getId(),
+                "PREGUNTA_NUEVA",
+                "Te hicieron una pregunta en \"" + publicacion.getTitulo() + "\"",
+                publicacion.getId(), null);
         return aDto(pregunta);
     }
 
@@ -64,6 +70,11 @@ public class PreguntaOfertaService {
                 .orElseThrow(() -> ApiException.noEncontrado("Pregunta no encontrada"));
         pregunta.setRespuesta(dto.respuesta());
         preguntaRepository.save(pregunta);
+                notificacionService.crear(
+                pregunta.getAutor().getId(), vendedor.getId(),
+                "PREGUNTA_RESPONDIDA",
+                "Respondieron tu pregunta en \"" + publicacion.getTitulo() + "\"",
+                publicacion.getId(), null);
         return aDto(pregunta);
     }
 
@@ -83,6 +94,11 @@ public class PreguntaOfertaService {
                 .fechaVencimiento(LocalDateTime.now().plusHours(vigenciaHoras))
                 .build();
         ofertaRepository.save(oferta);
+                notificacionService.crear(
+                publicacion.getVendedor().getId(), autor.getId(),
+                "OFERTA_RECIBIDA",
+                "Recibiste una oferta en \"" + publicacion.getTitulo() + "\"",
+                publicacion.getId(), oferta.getId());
         return aDto(oferta);
     }
 
@@ -114,7 +130,11 @@ public class PreguntaOfertaService {
                 .fechaAcordada(LocalDateTime.now())
                 .build();
         operacionRepository.save(operacion);
-
+        notificacionService.crear(
+                oferta.getAutor().getId(), usuario.getId(),
+                "OFERTA_ACEPTADA",
+                "Aceptaron tu oferta en \"" + oferta.getPublicacion().getTitulo() + "\"",
+                oferta.getPublicacion().getId(), oferta.getId());
         return aDto(oferta);
     }
 
@@ -124,6 +144,13 @@ public class PreguntaOfertaService {
         validarAutorizadoARepondar(usuario, oferta);
         oferta.setEstado(EstadoOferta.RECHAZADA);
         ofertaRepository.save(oferta);
+
+        notificacionService.crear(
+                oferta.getAutor().getId(), usuario.getId(),
+                "OFERTA_RECHAZADA",
+                "Rechazaron tu oferta en \"" + oferta.getPublicacion().getTitulo() + "\"",
+                oferta.getPublicacion().getId(), oferta.getId());
+
         return aDto(oferta);
     }
 
@@ -136,6 +163,7 @@ public class PreguntaOfertaService {
         original.setEstado(EstadoOferta.CONTRAOFERTADA);
         ofertaRepository.save(original);
 
+
         Oferta contraoferta = Oferta.builder()
                 .publicacion(original.getPublicacion())
                 .autor(usuario)
@@ -146,6 +174,12 @@ public class PreguntaOfertaService {
                 .ofertaOrigen(original)
                 .build();
         ofertaRepository.save(contraoferta);
+
+        notificacionService.crear(
+                original.getAutor().getId(), usuario.getId(),
+                "OFERTA_CONTRAOFERTADA",
+                "Te hicieron una contraoferta en \"" + original.getPublicacion().getTitulo() + "\"",
+                original.getPublicacion().getId(), contraoferta.getId());
 
         return aDto(contraoferta);
     }

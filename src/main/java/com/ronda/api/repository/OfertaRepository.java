@@ -14,7 +14,7 @@ import java.util.List;
 public interface OfertaRepository extends JpaRepository<Oferta, Long> {
 
     List<Oferta> findByPublicacionOrderByFechaDesc(Publicacion publicacion);
-
+ 
     List<Oferta> findByAutorOrderByFechaDesc(Usuario autor);
 
     @Query("""
